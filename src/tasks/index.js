@@ -2,7 +2,7 @@ const Nightmare = require('nightmare');
 const nightmare = Nightmare({ show: true });
 const mongoose = require('mongoose');
 const { postsSchema } = require('../models');
-const { getPostIds } = require('../html-parsers');
+const { getPostData, getPostDetails } = require('../html-parsers');
 
 // models
 const Post = mongoose.model('Post', postsSchema);
@@ -10,6 +10,17 @@ const Post = mongoose.model('Post', postsSchema);
 const BASE_URL =
   'https://www.imobiliare.ro/vanzare-terenuri-constructii/bucuresti';
 const PAGE_PARAM = 'pagina=';
+
+async function savePostIds(ids) {
+  let promises = ids.map(async id => {
+    if (!(await Post.exists({ postID: id.postID }))) {
+      let p = new Post(id);
+      p.save();
+    }
+    return Promise.resolve();
+  });
+  return Promise.all(promises);
+}
 
 function getIdsFromPosts(urls) {
   return urls
@@ -21,24 +32,15 @@ function getIdsFromPosts(urls) {
           .click('a.btn-actiune.btn-actiune--principal')
           .evaluate(() => document.querySelector('body').innerHTML)
           .then(function(response) {
-            results.push(getPostIds(response));
+            let pageIds = getPostData(response);
+            savePostIds(pageIds);
+            results.push(pageIds);
             return results;
           })
           .catch(err => console.log(err));
       });
     }, Promise.resolve([]))
     .then(results => results.flat());
-}
-
-async function savePostIds(ids) {
-  let promises = ids.map(async id => {
-    if (!(await Post.exists({ postID: id }))) {
-      let p = new Post({ postID: id });
-      p.save();
-    }
-    return Promise.resolve();
-  });
-  return Promise.all(promises);
 }
 
 function clearPostsCollection() {
@@ -55,10 +57,29 @@ async function scrapePostIds(baseUrl = BASE_URL, startPage = 1, endPage = 1) {
 
   // getting the Post-ids
   let ids = await getIdsFromPosts(urls);
+  console.log(ids);
+}
 
-  // save the Post-ids
-  let saved = await savePostIds(ids);
-  return saved;
+async function crawlPosts() {
+  let posts = await Post.find({})
+    .select({ href: true })
+    .lean();
+  return posts.reduce((acc, post) => {
+    return acc.then(results => {
+      return nightmare
+        .goto(post.href)
+        .wait('body')
+        .click('a.btn-actiune.btn-actiune--principal')
+        .evaluate(() => document.querySelector('body').innerHTML)
+        .then(async function(response) {
+          let postDetails = getPostDetails(response);
+          let u = await Post.findByIdAndUpdate(post._id, postDetails);
+          results.push(postDetails);
+          return results;
+        })
+        .catch(err => console.log(err));
+    });
+  }, Promise.resolve([]));
 }
 
 module.exports = {
@@ -66,4 +87,5 @@ module.exports = {
   clearPostsCollection,
   scrapePostIds,
   savePostIds,
+  crawlPosts,
 };
