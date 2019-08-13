@@ -1,12 +1,27 @@
-const mongoose = require('mongoose');
+import Parquets from 'parquets';
 
-const postsSchema = new mongoose.Schema({
-  postID: String,
-  href: String,
-  title: String,
-  description: String,
+export const postsSchema = new Parquets.ParquetSchema({
+  scrapedOnTS: { type: 'TIMESTAMP_MILLIS' },
+  postID: { type: 'UTF8' },
+  href: { type: 'UTF8' },
+  title: { type: 'UTF8' },
+  description: { type: 'UTF8' },
+  location: { type: 'UTF8' },
+  actualizat: { type: 'UTF8' },
+  price: { type: 'UTF8' },
+  priceCurrency: { type: 'UTF8' },
+  water: { type: 'BOOLEAN' },
+  drainage: { type: 'BOOLEAN' },
+  gas: { type: 'BOOLEAN' },
+  electricity: { type: 'BOOLEAN' },
+  area: { type: 'UTF8' },
+  street_front_length: { type: 'UTF8' },
+  street_front_num: { type: 'UTF8' },
+  pot: { type: 'UTF8' },
+  cut: { type: 'UTF8' },
+  urban_coef_source: { type: 'UTF8' },
+  terrain_type: { type: 'UTF8' },
+  classification: { type: 'UTF8' },
+  constructions: { type: 'UTF8' },
+  built_area: { type: 'UTF8' },
 });
-
-module.exports = {
-  postsSchema,
-};

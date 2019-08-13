@@ -2,17 +2,19 @@
   "name": "modern-web-scraper",
   "version": "1.0.0",
   "main": "src/index.js",
+  "type": "module",
   "repository": "git@github.com:rluncasu/modern-web-scraper.git",
   "author": "Radu Luncasu <radu.luncasu@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node --experimental-modules src/index.js"
   },
   "dependencies": {
     "batch-promises": "^0.0.3",
     "cheerio": "^1.0.0-rc.3",
     "dotenv": "^8.0.0",
     "mongoose": "^5.6.9",
-    "nightmare": "^3.0.2"
+    "nightmare": "^3.0.2",
+    "parquets": "^0.10.7"
   }
 }

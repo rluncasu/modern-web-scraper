@@ -1,26 +1,15 @@
-const dotenv = require('dotenv');
+import dotenv from 'dotenv';
 dotenv.config();
-const mongoose = require('mongoose');
-const tasks = require('./tasks');
+import * as tasks from './tasks/index.js';
 
-mongoose.connect(
-  `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASS}@${
-    process.env.MONGODB_URL
-  }`,
-  { useNewUrlParser: true, useFindAndModify: false }
-);
+(async function doWork() {
+  let postIds = await tasks.scrapePostIds(
+    'https://www.imobiliare.ro/vanzare-terenuri-constructii/bucuresti',
+    1,
+    65
+  );
 
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', async function() {
-  console.log('DB connected <---------------------');
-  // await tasks.scrapePostIds(
-  //   'https://www.imobiliare.ro/vanzare-terenuri-constructii/bucuresti',
-  //   1,
-  //   66
-  // );
-
-  await tasks.crawlPosts();
-
+  await tasks.crawlPosts(postIds);
   console.log('DAN! ,<----------------------');
-});
+  process.exit();
+})();

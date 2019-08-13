@@ -1,28 +1,21 @@
-const Nightmare = require('nightmare');
-const nightmare = Nightmare({ show: true });
-const mongoose = require('mongoose');
-const { postsSchema } = require('../models');
-const { getPostData, getPostDetails } = require('../html-parsers');
+import Nightmare from 'nightmare';
+import Parquets from 'parquets';
 
-// models
-const Post = mongoose.model('Post', postsSchema);
+import { postsSchema } from '../models.js';
+import { getPostData, getPostDetails } from '../html-parsers/index.js';
+
+const nightmare = Nightmare({
+  show: false,
+  webPreferences: {
+    images: false,
+  },
+});
 
 const BASE_URL =
   'https://www.imobiliare.ro/vanzare-terenuri-constructii/bucuresti';
 const PAGE_PARAM = 'pagina=';
 
-async function savePostIds(ids) {
-  let promises = ids.map(async id => {
-    if (!(await Post.exists({ postID: id.postID }))) {
-      let p = new Post(id);
-      p.save();
-    }
-    return Promise.resolve();
-  });
-  return Promise.all(promises);
-}
-
-function getIdsFromPosts(urls) {
+export function getIdsFromPosts(urls) {
   return urls
     .reduce(function(accumulator, url) {
       return accumulator.then(function(results) {
@@ -32,23 +25,21 @@ function getIdsFromPosts(urls) {
           .click('a.btn-actiune.btn-actiune--principal')
           .evaluate(() => document.querySelector('body').innerHTML)
           .then(function(response) {
-            let pageIds = getPostData(response);
-            savePostIds(pageIds);
-            results.push(pageIds);
+            let posts = getPostData(response);
+            results.push(posts);
             return results;
           })
           .catch(err => console.log(err));
       });
     }, Promise.resolve([]))
-    .then(results => results.flat());
+    .then(res => res.flat());
 }
 
-function clearPostsCollection() {
-  console.log('cleaning collection');
-  return Post.deleteMany({}).exec();
-}
-
-async function scrapePostIds(baseUrl = BASE_URL, startPage = 1, endPage = 1) {
+export async function scrapePostIds(
+  baseUrl = BASE_URL,
+  startPage = 1,
+  endPage = 1
+) {
   // building page urls
   let urls = [];
   for (let page = startPage; page < endPage + 1; page++) {
@@ -56,36 +47,40 @@ async function scrapePostIds(baseUrl = BASE_URL, startPage = 1, endPage = 1) {
   }
 
   // getting the Post-ids
-  let ids = await getIdsFromPosts(urls);
-  console.log(ids);
+  let posts = await getIdsFromPosts(urls);
+  return posts;
 }
 
-async function crawlPosts() {
-  let posts = await Post.find({})
-    .select({ href: true })
-    .lean();
-  return posts.reduce((acc, post) => {
-    return acc.then(results => {
-      return nightmare
-        .goto(post.href)
-        .wait('body')
-        .click('a.btn-actiune.btn-actiune--principal')
-        .evaluate(() => document.querySelector('body').innerHTML)
-        .then(async function(response) {
-          let postDetails = getPostDetails(response);
-          let u = await Post.findByIdAndUpdate(post._id, postDetails);
-          results.push(postDetails);
-          return results;
-        })
-        .catch(err => console.log(err));
+export async function crawlPosts(posts) {
+  let postsWriter = await Parquets.ParquetWriter.openFile(
+    postsSchema,
+    'terenuri.parquet'
+  );
+  return posts
+    .reduce((acc, post, idx) => {
+      return acc.then(results => {
+        return nightmare
+          .goto(post.href)
+          .wait('body')
+          .click('a.btn-actiune.btn-actiune--principal')
+          .evaluate(() => document.querySelector('body').innerHTML)
+          .then(async function(response) {
+            console.log(`Processing post:${post.postID} | idx: ${idx} `);
+            let postDetails = getPostDetails(response);
+            let row = {
+              ...postDetails,
+              scrapedOnTS: new Date(),
+              postID: post.postID,
+              href: post.href,
+            };
+            await postsWriter.appendRow(row);
+            results.push(row);
+            return results;
+          })
+          .catch(err => console.log(err));
+      });
+    }, Promise.resolve([]))
+    .finally(async () => {
+      await postsWriter.close();
     });
-  }, Promise.resolve([]));
 }
-
-module.exports = {
-  getIdsFromPosts,
-  clearPostsCollection,
-  scrapePostIds,
-  savePostIds,
-  crawlPosts,
-};
