@@ -13,7 +13,7 @@
     "batch-promises": "^0.0.3",
     "cheerio": "^1.0.0-rc.3",
     "dotenv": "^8.0.0",
-    "mongoose": "^5.6.9",
+    "mongoose": "^5.7.5",
     "nightmare": "^3.0.2",
     "parquets": "^0.10.7"
   }
